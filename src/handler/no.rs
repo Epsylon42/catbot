@@ -15,14 +15,16 @@ impl Processor for No {
     }
 
     fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
-        let lock = ctx.ctx.data.lock();
-        if let Some(lcm) = lock.get::<LastChannelMessage>() {
-            if let Some(last_msg_id) = lcm.0.get(&ctx.msg.channel_id) {
-                ctx.msg
-                    .channel_id
-                    .delete_message(*last_msg_id)
-                    .map_err(|e| format_err!("{}", e))?;
-            }
+        let mut lock = ctx.ctx.data.lock();
+        if let Some(id) = lock
+            .get_mut::<ChannelMessages>()
+            .and_then(|messages| messages.0.get_mut(&ctx.msg.channel_id))
+            .and_then(Vec::pop)
+        {
+            ctx.msg
+                .channel_id
+                .delete_message(id)
+                .map_err(|e| format_err!("{}", e))?;
         }
 
         Ok(())

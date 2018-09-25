@@ -4,7 +4,7 @@ use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, MessageId};
 use serenity::prelude::*;
 
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 
 mod cat;
 mod colon3;
@@ -14,9 +14,9 @@ mod no;
 #[fail(display = "Error: {}", _0)]
 struct UserError(pub Error);
 
-struct LastChannelMessage(HashMap<ChannelId, MessageId>);
+struct ChannelMessages(HashMap<ChannelId, Vec<MessageId>>);
 
-impl ::typemap::Key for LastChannelMessage {
+impl ::typemap::Key for ChannelMessages {
     type Value = Self;
 }
 
@@ -36,8 +36,16 @@ impl<'a> ProcessorContext<'a> {
             .say(text)
             .map(|msg| {
                 let mut lock = self.ctx.data.lock();
-                if let Some(lcm) = lock.get_mut::<LastChannelMessage>() {
-                    lcm.0.insert(msg.channel_id, msg.id);
+                if let Some(messages) = lock.get_mut::<ChannelMessages>() {
+                    match messages.0.entry(msg.channel_id) {
+                        hash_map::Entry::Occupied(mut entry) => {
+                            entry.get_mut().push(msg.id);
+                        }
+
+                        hash_map::Entry::Vacant(entry) => {
+                            entry.insert(vec![msg.id]);
+                        }
+                    }
                 }
 
                 msg
@@ -65,7 +73,7 @@ impl CatBotHandler {
 
     pub fn init(client: &mut Client) {
         let mut lock = client.data.lock();
-        lock.insert::<LastChannelMessage>(LastChannelMessage(HashMap::new()));
+        lock.insert::<ChannelMessages>(ChannelMessages(HashMap::new()));
     }
 
     fn with_processor(mut self, cmd: Box<Processor>) -> Self {
