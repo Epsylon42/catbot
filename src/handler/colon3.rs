@@ -1,6 +1,6 @@
-use failure::Error;
-use regex::{Regex, Captures};
 use super::*;
+use failure::Error;
+use regex::{Captures, Regex};
 
 pub struct Colon3;
 
@@ -38,19 +38,19 @@ impl Processor for Colon3 {
         };
 
         let response = if cap.get(1).is_some() {
-            (1..=num).chain((1..num).rev())
+            (1..=num)
+                .chain((1..num).rev())
                 .flat_map(|n| {
-                    use std::iter::{repeat, once};
+                    use std::iter::{once, repeat};
                     repeat(":3  ").take(n as usize).chain(once("\n"))
-                })
-                .collect::<String>()
+                }).collect::<String>()
         } else {
-            (1..=num).chain((1..num).rev())
+            (1..=num)
+                .chain((1..num).rev())
                 .flat_map(|n| {
-                    use std::iter::{repeat, once};
+                    use std::iter::{once, repeat};
                     repeat("🐱").take(n as usize).chain(once("\n"))
-                })
-                .collect::<String>()
+                }).collect::<String>()
         };
 
         ctx.reply(&response)?;

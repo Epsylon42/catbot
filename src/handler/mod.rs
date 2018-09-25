@@ -1,13 +1,13 @@
 use failure::Error;
-use regex::{Regex, Captures};
-use serenity::prelude::*;
-use serenity::model::id::{MessageId, ChannelId};
+use regex::{Captures, Regex};
 use serenity::model::channel::Message;
+use serenity::model::id::{ChannelId, MessageId};
+use serenity::prelude::*;
 
 use std::collections::HashMap;
 
-mod colon3;
 mod cat;
+mod colon3;
 mod no;
 
 #[derive(Debug, Fail)]
@@ -25,16 +25,15 @@ struct ProcessorContext<'a> {
     msg: &'a mut Message,
 }
 
-impl <'a> ProcessorContext<'a> {
+impl<'a> ProcessorContext<'a> {
     fn new(ctx: &'a mut Context, msg: &'a mut Message) -> Self {
-        ProcessorContext {
-            ctx,
-            msg,
-        }
+        ProcessorContext { ctx, msg }
     }
 
     fn reply(&self, text: &str) -> Result<Message, Error> {
-        self.msg.channel_id.say(text)
+        self.msg
+            .channel_id
+            .say(text)
             .map(|msg| {
                 let mut lock = self.ctx.data.lock();
                 if let Some(lcm) = lock.get_mut::<LastChannelMessage>() {
@@ -42,8 +41,7 @@ impl <'a> ProcessorContext<'a> {
                 }
 
                 msg
-            })
-            .map_err(|e| format_err!("{}", e))
+            }).map_err(|e| format_err!("{}", e))
     }
 }
 
@@ -59,10 +57,10 @@ pub struct CatBotHandler {
 impl CatBotHandler {
     pub fn new() -> Self {
         CatBotHandler {
-            processors: Vec::new()
+            processors: Vec::new(),
         }.with_processor(Box::new(colon3::Colon3))
-         .with_processor(Box::new(cat::Cat))
-         .with_processor(Box::new(no::No))
+        .with_processor(Box::new(cat::Cat))
+        .with_processor(Box::new(no::No))
     }
 
     pub fn init(client: &mut Client) {
@@ -79,7 +77,7 @@ impl CatBotHandler {
 fn skip_whitespace(text: &str) -> &str {
     for (index, ch) in text.char_indices() {
         if !ch.is_whitespace() {
-            return &text[index..]
+            return &text[index..];
         }
     }
 
@@ -100,7 +98,9 @@ impl EventHandler for CatBotHandler {
         if let Some(text) = skip_prefix(&content) {
             for processor in &self.processors {
                 if let Some(captures) = processor.format().captures(text) {
-                    if let Err(e) = processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures) {
+                    if let Err(e) =
+                        processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures)
+                    {
                         if let Some(user_err) = e.downcast_ref::<UserError>() {
                             let _ = msg.channel_id.say(format!("{}", user_err));
                             info!("User facing error");
