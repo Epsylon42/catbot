@@ -103,12 +103,16 @@ impl EventHandler for CatBotHandler {
                     if let Err(e) = processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures) {
                         if let Some(user_err) = e.downcast_ref::<UserError>() {
                             let _ = msg.channel_id.say(format!("{}", user_err));
-                            error!("User facing error");
+                            info!("User facing error");
+                            for cause in e.causes() {
+                                info!("Because of \"{:?}\"", cause);
+                            }
                         } else {
+                            let _ = msg.channel_id.say("Internal error. What have you done?");
                             error!("Internal error");
-                        }
-                        for cause in e.causes() {
-                            error!("Because of \"{:?}\"", cause);
+                            for cause in e.causes() {
+                                error!("Because of \"{:?}\"", cause);
+                            }
                         }
                     }
                 }

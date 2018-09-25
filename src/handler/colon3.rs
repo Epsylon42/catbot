@@ -5,9 +5,19 @@ use super::*;
 pub struct Colon3;
 
 fn parse_num(text: &str) -> Result<u8, Error> {
-    let num = text.parse()?;
-    ensure!((1..=14).contains(num), "Invalid pyramid size {}. Must be from 1 to 14", num);
-    Ok(num)
+    text
+        .parse()
+        .ok()
+        .and_then(|num| {
+            if (1..=14).contains(&num) {
+                Some(num)
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            UserError(format_err!("Invalid pyramid size. Must be from 1 to 14")).into()
+        })
 }
 
 impl Processor for Colon3 {
@@ -22,7 +32,7 @@ impl Processor for Colon3 {
     fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error> {
         //TODO: error reporting
         let num = if let Some(cap) = cap.get(2) {
-            parse_num(cap.as_str()).map_err(UserError)?
+            parse_num(cap.as_str())?
         } else {
             3
         };
