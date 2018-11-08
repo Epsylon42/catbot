@@ -97,7 +97,7 @@ fn skip_whitespace(text: &str) -> &str {
 }
 
 fn skip_prefix(text: &str) -> Option<&str> {
-    let prefix = "cbd";
+    let prefix = "catbot";
     if text.starts_with(prefix) {
         Some(skip_whitespace(&text[prefix.len()..]))
     } else {
