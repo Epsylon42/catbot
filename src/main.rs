@@ -25,7 +25,7 @@ fn main() {
     env_logger::init();
 
     let mut client = serenity::Client::new(
-        "NDQwMTIyODA1OTMwMTY0MjI0.DcdJ0Q._z5Tbign0q9baPhbwn1Ig19hZUc",
+        &std::env::var("CATBOT_TOKEN").unwrap(),
         handler::CatBotHandler::new(),
     ).unwrap();
     handler::CatBotHandler::init(&mut client);
