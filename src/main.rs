@@ -4,6 +4,7 @@ extern crate regex;
 extern crate reqwest;
 extern crate serenity;
 extern crate typemap;
+extern crate unic_emoji_char as emoji;
 
 #[macro_use]
 extern crate log;

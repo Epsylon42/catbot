@@ -11,7 +11,7 @@ mod colon3;
 mod no;
 
 #[derive(Debug, Fail)]
-#[fail(display = "Error: {}", _0)]
+#[fail(display = "{}", _0)]
 struct UserError(pub Error);
 
 struct ChannelMessages(HashMap<ChannelId, Vec<MessageId>>);
@@ -49,7 +49,8 @@ impl<'a> ProcessorContext<'a> {
                 }
 
                 msg
-            }).map_err(|e| format_err!("{}", e))
+            })
+            .map_err(|e| format_err!("{}", e))
     }
 }
 
@@ -66,7 +67,8 @@ impl CatBotHandler {
     pub fn new() -> Self {
         CatBotHandler {
             processors: Vec::new(),
-        }.with_processor(Box::new(colon3::Colon3))
+        }
+        .with_processor(Box::new(colon3::Colon3))
         .with_processor(Box::new(cat::Cat))
         .with_processor(Box::new(no::No))
     }
@@ -93,8 +95,9 @@ fn skip_whitespace(text: &str) -> &str {
 }
 
 fn skip_prefix(text: &str) -> Option<&str> {
-    if text.starts_with("catbot") {
-        Some(skip_whitespace(&text[6..]))
+    let prefix = "cbd";
+    if text.starts_with(prefix) {
+        Some(skip_whitespace(&text[prefix.len()..]))
     } else {
         None
     }
@@ -110,7 +113,10 @@ impl EventHandler for CatBotHandler {
                         processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures)
                     {
                         if let Some(user_err) = e.downcast_ref::<UserError>() {
-                            let _ = msg.channel_id.say(format!("{}", user_err));
+                            let _ = msg.channel_id.say(format!(
+                                "I'm sorry {}, I'm afraid I can't do that ({})",
+                                msg.author.name, user_err
+                            ));
                             info!("User facing error");
                             for cause in e.causes() {
                                 info!("Because of \"{:?}\"", cause);
