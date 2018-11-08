@@ -1,5 +1,5 @@
 [package]
-name = "cat_bot"
+name = "catbot"
 version = "0.1.0"
 authors = ["Epsylon <eepsylon.3@gmail.com>"]
 
