@@ -38,12 +38,12 @@ impl Processor for Cat {
     }
 
     fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
-        let response = reqwest::get("http://aws.random.cat/meow")
-            .and_then(|mut response| response.json::<CatResponse>().map(|response| response.file))
+        let response = reqwest::get("http://thecatapi.com/api/images/get?format=src")
+            .map(|response| response.url().as_str().to_owned())
             .or_else(|_| {
                 error!("Main api error. Using fallback");
-                reqwest::get("http://thecatapi.com/api/images/get?format=src")
-                    .map(|response| response.url().as_str().to_owned())
+                reqwest::get("http://aws.random.cat/meow")
+			.and_then(|mut response| response.json::<CatResponse>().map(|response| response.file))
             }).map_err(|e| e.context(UserError(format_err!("Could not get a cat picture"))))?;
 
         ctx.reply(&response)?;
