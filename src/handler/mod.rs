@@ -103,7 +103,7 @@ fn skip_prefix(text: &str) -> Option<&str> {
     #[cfg(not(debug_assertions))]
     let prefix = "catbot";
 
-    if text.starts_with(prefix) {
+    if text[..prefix.len()].to_lowercase() == prefix {
         Some(skip_whitespace(&text[prefix.len()..]))
     } else {
         None
