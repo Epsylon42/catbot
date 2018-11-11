@@ -8,7 +8,7 @@ impl Processor for No {
     fn format(&self) -> &'static Regex {
         lazy_static! {
             static ref RE: Regex =
-                Regex::new("(?i:(please |pls |plz |i beg you)?(no|stop|undo)!*)").unwrap();
+                Regex::new("(?i:^(please |pls |plz |i beg you)?(no|stop|undo)!*)$").unwrap();
         }
 
         &*RE

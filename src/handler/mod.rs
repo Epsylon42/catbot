@@ -97,7 +97,12 @@ fn skip_whitespace(text: &str) -> &str {
 }
 
 fn skip_prefix(text: &str) -> Option<&str> {
+    #[cfg(debug_assertions)]
+    let prefix = "cbd";
+
+    #[cfg(not(debug_assertions))]
     let prefix = "catbot";
+
     if text.starts_with(prefix) {
         Some(skip_whitespace(&text[prefix.len()..]))
     } else {
@@ -105,34 +110,41 @@ fn skip_prefix(text: &str) -> Option<&str> {
     }
 }
 
-impl EventHandler for CatBotHandler {
-    fn message(&self, mut ctx: Context, mut msg: Message) {
+impl CatBotHandler {
+    fn process_msg(&self, mut ctx: Context, mut msg: Message) -> Option<()> {
         let content = msg.content.clone();
-        if let Some(text) = skip_prefix(&content) {
-            for processor in &self.processors {
-                if let Some(captures) = processor.format().captures(text) {
-                    if let Err(e) =
-                        processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures)
-                    {
-                        if let Some(user_err) = e.downcast_ref::<UserError>() {
-                            let _ = msg.channel_id.say(format!(
-                                "I'm sorry {}, I'm afraid I can't do that ({})",
-                                msg.author.name, user_err
-                            ));
-                            info!("User facing error");
-                            for cause in e.causes() {
-                                info!("Because of \"{:?}\"", cause);
-                            }
-                        } else {
-                            let _ = msg.channel_id.say("Internal error. What have you done?");
-                            error!("Internal error");
-                            for cause in e.causes() {
-                                error!("Because of \"{:?}\"", cause);
-                            }
-                        }
-                    }
+        let text = skip_prefix(&content)?;
+
+        let (captures, processor) = self
+            .processors
+            .iter()
+            .find_map(|proc| Some((proc.format().captures(text)?, proc)))?;
+
+        if let Err(e) = processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures) {
+            if let Some(user_err) = e.downcast_ref::<UserError>() {
+                let _ = msg.channel_id.say(format!(
+                    "I'm sorry {}, I'm afraid I can't do that ({})",
+                    msg.author.name, user_err
+                ));
+                info!("User facing error");
+                for cause in e.causes() {
+                    info!("Because of \"{:?}\"", cause);
+                }
+            } else {
+                let _ = msg.channel_id.say("Internal error. What have you done?");
+                error!("Internal error");
+                for cause in e.causes() {
+                    error!("Because of \"{:?}\"", cause);
                 }
             }
         }
+
+        Some(())
+    }
+}
+
+impl EventHandler for CatBotHandler {
+    fn message(&self, ctx: Context, msg: Message) {
+        self.process_msg(ctx, msg);
     }
 }
