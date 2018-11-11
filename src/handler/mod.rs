@@ -9,6 +9,7 @@ use std::collections::{hash_map, HashMap};
 mod cat;
 mod colon3;
 mod help;
+mod love;
 mod no;
 
 #[derive(Debug, Fail)]
@@ -73,6 +74,7 @@ impl CatBotHandler {
         .with_processor(Box::new(cat::Cat))
         .with_processor(Box::new(no::No))
         .with_processor(Box::new(help::Help))
+        .with_processor(Box::new(love::Love))
     }
 
     pub fn init(client: &mut Client) {
