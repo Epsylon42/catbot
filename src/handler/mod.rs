@@ -11,6 +11,7 @@ mod colon3;
 mod help;
 mod love;
 mod no;
+mod post;
 
 #[derive(Debug, Fail)]
 #[fail(display = "{}", _0)]
@@ -58,7 +59,15 @@ impl<'a> ProcessorContext<'a> {
 
 trait Processor: Send + Sync {
     fn format(&self) -> &'static Regex;
-    fn process(&self, ProcessorContext, cap: Captures) -> Result<(), Error>;
+    fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error>;
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    #[serde(default)]
+    pub post: HashMap<String, String>,
+    #[serde(default)]
+    pub token: Option<String>,
 }
 
 pub struct CatBotHandler {
@@ -66,7 +75,7 @@ pub struct CatBotHandler {
 }
 
 impl CatBotHandler {
-    pub fn new() -> Self {
+    pub fn new(config: Config) -> Self {
         CatBotHandler {
             processors: Vec::new(),
         }
@@ -75,6 +84,13 @@ impl CatBotHandler {
         .with_processor(Box::new(no::No))
         .with_processor(Box::new(help::Help))
         .with_processor(Box::new(love::Love))
+        .with_processor(Box::new(post::Post {
+            map: config
+                .post
+                .into_iter()
+                .map(|(k, v)| (k.to_lowercase(), v))
+                .collect(),
+        }))
     }
 
     pub fn init(client: &mut Client) {

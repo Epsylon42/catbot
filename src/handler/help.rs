@@ -23,6 +23,7 @@ Things in triangle brackets are (with some limitations) whatever you want
 
 `help`: show this message
 `cat`: find a cat picture
+`post <ITEM>: post something`
 `[old |custom <PATTERN> ]pyramid[ <HEIGHT>]`: build a pyramid
 `no`: delete latest message";
 

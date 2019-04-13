@@ -22,13 +22,14 @@ impl Processor for Cat {
                     "literally domesticated tiger",
                     "apex predator",
                 ]
-                    .into_iter()
-                    .flat_map(|s| {
-                        use std::iter::once;
+                .into_iter()
+                .flat_map(|s| {
+                    use std::iter::once;
 
-                        once("|").chain(once(*s))
-                    }).skip(1)
-                    .collect::<String>();
+                    once("|").chain(once(*s))
+                })
+                .skip(1)
+                .collect::<String>();
 
                 Regex::new(&format!(r"^(?i:{})$", cats)).unwrap()
             };
@@ -42,9 +43,11 @@ impl Processor for Cat {
             .map(|response| response.url().as_str().to_owned())
             .or_else(|_| {
                 error!("Main api error. Using fallback");
-                reqwest::get("http://aws.random.cat/meow")
-			.and_then(|mut response| response.json::<CatResponse>().map(|response| response.file))
-            }).map_err(|e| e.context(UserError(format_err!("Could not get a cat picture"))))?;
+                reqwest::get("http://aws.random.cat/meow").and_then(|mut response| {
+                    response.json::<CatResponse>().map(|response| response.file)
+                })
+            })
+            .map_err(|e| e.context(UserError(format_err!("Could not get a cat picture"))))?;
 
         ctx.reply(&response)?;
 
