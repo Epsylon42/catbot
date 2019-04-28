@@ -14,7 +14,7 @@ impl Processor for Colon3 {
     fn format(&self) -> &'static Regex {
         lazy_static! {
             //Wow
-            static ref RE: Regex = Regex::new(r"^(?i:(?P<kind>old |custom (?P<pat>\S+) )?pyramid)(?: (?P<height>\d+))?$").unwrap();
+            static ref RE: Regex = Regex::new(r"^(?i:(?P<kind>old |custom (?P<pat>.+) )?pyramid)(?: (?P<height>\d+))?$").unwrap();
         }
 
         &*RE
