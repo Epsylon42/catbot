@@ -1,7 +1,5 @@
-use rocket::http::Status;
 use rocket::request::Form;
-use rocket::response::{content::Html, status, Redirect};
-use rocket::State;
+use rocket::response::{content::Html, Redirect};
 use serenity::http::{get_channel, get_channels, get_guilds, GuildPagination};
 use serenity::model::{
     channel::{Channel, ChannelType},
@@ -10,7 +8,8 @@ use serenity::model::{
 
 #[derive(Deserialize)]
 pub struct Config {
-    pass: String,
+    address: [u8; 4],
+    port: u16,
 }
 
 fn template(title: &str, body: &str) -> String {
@@ -80,8 +79,6 @@ fn channel(id: u64) -> Result<Html<String>, serenity::Error> {
             &format!(
                 r#"
 <form action="/channel/{}" method="POST">
-<input type="password" name="pass" placeholder="password">
-<br />
 <textarea name="message"></textarea>
 <br />
 <input type="submit" value="send">
@@ -97,7 +94,6 @@ fn channel(id: u64) -> Result<Html<String>, serenity::Error> {
 
 #[derive(FromForm)]
 struct MsgForm {
-    pass: String,
     message: String,
 }
 
@@ -105,29 +101,27 @@ struct MsgForm {
 fn channel_post(
     id: u64,
     data: Form<MsgForm>,
-    conf: State<Config>,
-) -> Result<Result<Redirect, status::Custom<Html<String>>>, serenity::Error> {
+) -> Result<Redirect, serenity::Error> {
     if let Channel::Guild(chan) = get_channel(id)? {
-        if data.pass == conf.pass {
-            let chan = chan.read();
-            chan.say(&data.message)?;
+        let chan = chan.read();
+        chan.say(&data.message)?;
 
-            Ok(Ok(Redirect::to(format!("/channel/{}", id))))
-        } else {
-            Ok(Err(status::Custom(
-                Status::Forbidden,
-                Html(template("Wrong password", "<h1>Wrong Password</h1>")),
-            )))
-        }
+        Ok(Redirect::to(format!("/channel/{}", id)))
     } else {
         Err(serenity::Error::Other("Invalid channel type"))
     }
 }
 
 pub fn start(conf: Config) {
+    let mut server_conf = rocket::Config::active().unwrap();
+    server_conf.address = format!(
+        "{}.{}.{}.{}",
+        conf.address[0], conf.address[1], conf.address[2], conf.address[3]
+    );
+    server_conf.port = conf.port;
+
     println!("Starting server");
-    rocket::ignite()
-        .manage(conf)
+    rocket::Rocket::custom(server_conf)
         .mount("/", routes![root, guilds, guild, channel, channel_post])
         .launch();
 }
