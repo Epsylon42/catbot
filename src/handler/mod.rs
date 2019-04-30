@@ -6,6 +6,8 @@ use serenity::prelude::*;
 
 use std::collections::{hash_map, HashMap};
 
+use crate::Config;
+
 mod cat;
 mod colon3;
 mod help;
@@ -62,20 +64,12 @@ trait Processor: Send + Sync {
     fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error>;
 }
 
-#[derive(Deserialize)]
-pub struct Config {
-    #[serde(default)]
-    pub post: HashMap<String, String>,
-    #[serde(default)]
-    pub token: Option<String>,
-}
-
 pub struct CatBotHandler {
     processors: Vec<Box<Processor>>,
 }
 
 impl CatBotHandler {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: &Config) -> Self {
         CatBotHandler {
             processors: Vec::new(),
         }
@@ -87,8 +81,8 @@ impl CatBotHandler {
         .with_processor(Box::new(post::Post {
             map: config
                 .post
-                .into_iter()
-                .map(|(k, v)| (k.to_lowercase(), v))
+                .iter()
+                .map(|(k, v)| (k.to_lowercase(), v.clone()))
                 .collect(),
         }))
     }
