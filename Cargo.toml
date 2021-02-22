@@ -5,16 +5,15 @@ authors = ["Epsylon <eepsylon.3@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-serenity = "0.5"
-regex = "0.2"
-reqwest = "0.8"
-typemap = "0.3"
+serenity = { version = "0.10", default-features = false, features = ["client", "builder", "rustls_backend", "gateway", "model", "utils"] }
+regex = "1.4"
+reqwest = { version = "0.11", features = ["json"] }
 log = "0.4"
-env_logger = "0.5"
+env_logger = "0.8"
 failure = "0.1"
 lazy_static = "1"
-serde = "1.0.90"
-unic-emoji-char = "0.7.0"
-serde_json = "1.0.39"
-serde_derive = "1.0.90"
-rocket = "0.4.0"
+serde = { version = "1", features = ["derive"] }
+unic-emoji-char = "0.9"
+serde_json = "1"
+#rocket = "0.4.0"
+tokio = { version = "1.2", features = ["macros"] }

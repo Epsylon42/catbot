@@ -1,12 +1,26 @@
-use failure::Error;
+use failure::{Error, Fail, format_err};
 use regex::{Captures, Regex};
+use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, MessageId};
 use serenity::prelude::*;
 
+use log::{info, error};
+
 use std::collections::{hash_map, HashMap};
 
 use crate::Config;
+
+mod prelude {
+    pub use failure::{Error, Fail, format_err};
+    pub use regex::{Captures, Regex};
+    pub use lazy_static::lazy_static;
+    pub use serenity::{async_trait, FutureExt, futures::TryFutureExt};
+    pub use serde::Deserialize;
+    pub use log::{info, error, warn};
+
+    pub(super) use super::{Processor, ProcessorContext, UserError, ChannelMessages};
+}
 
 mod cat;
 mod colon3;
@@ -21,7 +35,7 @@ struct UserError(pub Error);
 
 struct ChannelMessages(HashMap<ChannelId, Vec<MessageId>>);
 
-impl ::typemap::Key for ChannelMessages {
+impl TypeMapKey for ChannelMessages {
     type Value = Self;
 }
 
@@ -35,12 +49,10 @@ impl<'a> ProcessorContext<'a> {
         ProcessorContext { ctx, msg }
     }
 
-    fn reply(&self, text: &str) -> Result<Message, Error> {
-        self.msg
-            .channel_id
-            .say(text)
-            .map(|msg| {
-                let mut lock = self.ctx.data.lock();
+    async fn reply(&self, text: &str) -> Result<Message, Error> {
+        match self.msg.channel_id.say(&self.ctx.http, text).await {
+            Ok(msg) => {
+                let mut lock = self.ctx.data.write().await;
                 if let Some(messages) = lock.get_mut::<ChannelMessages>() {
                     match messages.0.entry(msg.channel_id) {
                         hash_map::Entry::Occupied(mut entry) => {
@@ -53,19 +65,22 @@ impl<'a> ProcessorContext<'a> {
                     }
                 }
 
-                msg
-            })
-            .map_err(|e| format_err!("{}", e))
+                Ok(msg)
+            },
+
+            Err(e) => Err(format_err!("{}", e)),
+        }
     }
 }
 
+#[async_trait]
 trait Processor: Send + Sync {
     fn format(&self) -> &'static Regex;
-    fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error>;
+    async fn process(&self, ctx: ProcessorContext<'_>, cap: Captures<'_>) -> Result<(), Error>;
 }
 
 pub struct CatBotHandler {
-    processors: Vec<Box<Processor>>,
+    processors: Vec<Box<dyn Processor>>,
 }
 
 impl CatBotHandler {
@@ -87,25 +102,15 @@ impl CatBotHandler {
         }))
     }
 
-    pub fn init(client: &mut Client) {
-        let mut lock = client.data.lock();
+    pub async fn init(client: &mut Client) {
+        let mut lock = client.data.write().await;
         lock.insert::<ChannelMessages>(ChannelMessages(HashMap::new()));
     }
 
-    fn with_processor(mut self, cmd: Box<Processor>) -> Self {
+    fn with_processor(mut self, cmd: Box<dyn Processor>) -> Self {
         self.processors.push(cmd);
         self
     }
-}
-
-fn skip_whitespace(text: &str) -> &str {
-    for (index, ch) in text.char_indices() {
-        if !ch.is_whitespace() {
-            return &text[index..];
-        }
-    }
-
-    ""
 }
 
 fn skip_prefix(text: &str) -> Option<&str> {
@@ -115,15 +120,15 @@ fn skip_prefix(text: &str) -> Option<&str> {
     #[cfg(not(debug_assertions))]
     let prefix = "catbot";
 
-    if text[..prefix.len()].to_lowercase() == prefix {
-        Some(skip_whitespace(&text[prefix.len()..]))
+    if text.starts_with(prefix) {
+        Some(&text[prefix.len()..].trim_start())
     } else {
         None
     }
 }
 
 impl CatBotHandler {
-    fn process_msg(&self, mut ctx: Context, mut msg: Message) -> Option<()> {
+    async fn process_msg(&self, mut ctx: Context, mut msg: Message) -> Option<()> {
         let content = msg.content.clone();
         let text = skip_prefix(&content)?;
 
@@ -132,20 +137,20 @@ impl CatBotHandler {
             .iter()
             .find_map(|proc| Some((proc.format().captures(text)?, proc)))?;
 
-        if let Err(e) = processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures) {
+        if let Err(e) = processor.process(ProcessorContext::new(&mut ctx, &mut msg), captures).await {
             if let Some(user_err) = e.downcast_ref::<UserError>() {
-                let _ = msg.channel_id.say(format!(
+                let _ = msg.channel_id.say(&ctx.http, format!(
                     "I'm sorry {}, I'm afraid I can't do that ({})",
                     msg.author.name, user_err
-                ));
+                )).await;
                 info!("User facing error");
-                for cause in e.causes() {
+                for cause in e.iter_chain() {
                     info!("Because of \"{:?}\"", cause);
                 }
             } else {
-                let _ = msg.channel_id.say("Internal error. What have you done?");
+                let _ = msg.channel_id.say(&ctx.http, "Internal error. What have you done?").await;
                 error!("Internal error");
-                for cause in e.causes() {
+                for cause in e.iter_chain() {
                     error!("Because of \"{:?}\"", cause);
                 }
             }
@@ -155,8 +160,9 @@ impl CatBotHandler {
     }
 }
 
+#[async_trait]
 impl EventHandler for CatBotHandler {
-    fn message(&self, ctx: Context, msg: Message) {
-        self.process_msg(ctx, msg);
+    async fn message(&self, ctx: Context, msg: Message) {
+        self.process_msg(ctx, msg).await;
     }
 }

@@ -1,8 +1,4 @@
-use failure::{Error, Fail};
-use regex::{Captures, Regex};
-use reqwest;
-
-use super::*;
+use super::prelude::*;
 
 #[derive(Deserialize)]
 struct CatResponse {
@@ -11,6 +7,7 @@ struct CatResponse {
 
 pub struct Cat;
 
+#[async_trait]
 impl Processor for Cat {
     fn format(&self) -> &'static Regex {
         lazy_static! {
@@ -22,7 +19,7 @@ impl Processor for Cat {
                     "literally domesticated tiger",
                     "apex predator",
                 ]
-                .into_iter()
+                .iter()
                 .flat_map(|s| {
                     use std::iter::once;
 
@@ -38,18 +35,19 @@ impl Processor for Cat {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
+    async fn process(&self, ctx: ProcessorContext<'_>, _: Captures<'_>) -> Result<(), Error> {
         let response = reqwest::get("http://thecatapi.com/api/images/get?format=src")
-            .map(|response| response.url().as_str().to_owned())
+            .map_ok(|response| response.url().to_string())
             .or_else(|_| {
                 error!("Main api error. Using fallback");
-                reqwest::get("http://aws.random.cat/meow").and_then(|mut response| {
-                    response.json::<CatResponse>().map(|response| response.file)
+                reqwest::get("http://aws.random.cat/meow").and_then(|response| {
+                    response.json::<CatResponse>().map_ok(|response| response.file)
                 })
             })
-            .map_err(|e| e.context(UserError(format_err!("Could not get a cat picture"))))?;
+            .map_err(|e| e.context(UserError(format_err!("Could not get a cat picture"))))
+            .await?;
 
-        ctx.reply(&response)?;
+        ctx.reply(&response).await?;
 
         Ok(())
     }

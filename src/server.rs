@@ -1,3 +1,4 @@
+use rocket::{get, routes};
 use rocket::request::Form;
 use rocket::response::{content::Html, Redirect};
 use serenity::http::{get_channel, get_channels, get_guilds, GuildPagination};
@@ -5,6 +6,7 @@ use serenity::model::{
     channel::{Channel, ChannelType},
     id::GuildId,
 };
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Config {

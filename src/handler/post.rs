@@ -1,6 +1,4 @@
-use super::*;
-use failure::Error;
-use regex::{Captures, Regex};
+use super::prelude::*;
 
 use std::collections::HashMap;
 
@@ -8,6 +6,7 @@ pub struct Post {
     pub map: HashMap<String, String>,
 }
 
+#[async_trait]
 impl Processor for Post {
     fn format(&self) -> &'static Regex {
         lazy_static! {
@@ -17,11 +16,11 @@ impl Processor for Post {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error> {
+    async fn process(&self, ctx: ProcessorContext<'_>, cap: Captures<'_>) -> Result<(), Error> {
         if let Some(response) = self.map.get(&cap.get(1).unwrap().as_str().to_lowercase()) {
-            ctx.reply(response)?;
+            ctx.reply(response).await?;
         } else {
-            ctx.reply("I'm sorry. I don't have anything like this.")?;
+            ctx.reply("I'm sorry. I don't have anything like this.").await?;
         }
 
         Ok(())

@@ -1,31 +1,7 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
-extern crate regex;
-extern crate reqwest;
-extern crate serenity;
-extern crate typemap;
-extern crate unic_emoji_char as emoji;
-
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-
-#[macro_use]
-extern crate failure;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate rocket;
+use serde::Deserialize;
 
 mod handler;
-mod server;
+//mod server;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -33,12 +9,14 @@ pub struct Config {
     pub post: std::collections::HashMap<String, String>,
     #[serde(default)]
     pub token: Option<String>,
-    #[serde(default)]
-    pub server: Option<server::Config>,
+    //#[serde(default)]
+    //pub server: Option<server::Config>,
 }
 
 
-fn main() {
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     env_logger::init();
 
     let config = std::env::var("CONFIG")
@@ -47,19 +25,18 @@ fn main() {
         .unwrap_or_else(|| "{}".to_string());
 
     let config: Config = serde_json::de::from_str(&config).unwrap();
+    let token = config.token.clone().or_else(|| std::env::var("CATBOT_TOKEN").ok()).expect("Set 'token' in a config file or specify it as an environment variable CATBOT_TOKEN");
 
-    let mut client = serenity::Client::new(
-        &config.token.clone().or_else(|| std::env::var("CATBOT_TOKEN").ok()).expect("Set 'token' in a config file or specify it as an environment variable CATBOT_TOKEN"),
-        handler::CatBotHandler::new(&config),
-    )
-    .unwrap();
-    handler::CatBotHandler::init(&mut client);
+    let mut client = serenity::Client::builder(token)
+        .event_handler(handler::CatBotHandler::new(&config))
+        .await
+        .unwrap();
 
-    println!("Starting");
+    handler::CatBotHandler::init(&mut client).await;
 
-    if let Some(conf) = config.server {
-        std::thread::spawn(move || server::start(conf));
-    }
+    //if let Some(conf) = config.server {
+        //std::thread::spawn(move || server::start(conf));
+    //}
 
-    client.start().unwrap();
+    client.start().await.unwrap();
 }

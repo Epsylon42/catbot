@@ -1,9 +1,8 @@
-use super::*;
-use failure::Error;
-use regex::{Captures, Regex};
+use super::prelude::*;
 
 pub struct Love;
 
+#[async_trait]
 impl Processor for Love {
     fn format(&self) -> &'static Regex {
         lazy_static! {
@@ -13,8 +12,8 @@ impl Processor for Love {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
-        ctx.reply("I know")?;
+    async fn process(&self, ctx: ProcessorContext<'_>, _: Captures<'_>) -> Result<(), Error> {
+        ctx.reply("I know").await?;
 
         Ok(())
     }

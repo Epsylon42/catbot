@@ -1,9 +1,8 @@
-use super::*;
-use failure::Error;
-use regex::{Captures, Regex};
+use super::prelude::*;
 
 pub struct No;
 
+#[async_trait]
 impl Processor for No {
     fn format(&self) -> &'static Regex {
         lazy_static! {
@@ -14,8 +13,8 @@ impl Processor for No {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
-        let mut lock = ctx.ctx.data.lock();
+    async fn process(&self, ctx: ProcessorContext<'_>, _: Captures<'_>) -> Result<(), Error> {
+        let mut lock = ctx.ctx.data.write().await;
         if let Some(id) = lock
             .get_mut::<ChannelMessages>()
             .and_then(|messages| messages.0.get_mut(&ctx.msg.channel_id))
@@ -23,7 +22,8 @@ impl Processor for No {
         {
             ctx.msg
                 .channel_id
-                .delete_message(id)
+                .delete_message(&ctx.ctx.http, id)
+                .await
                 .map_err(|e| format_err!("{}", e))?;
         }
 

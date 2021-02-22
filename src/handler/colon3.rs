@@ -1,7 +1,6 @@
-use super::*;
-use failure::Error;
-use regex::{Captures, Regex};
-use emoji;
+use super::prelude::*;
+
+use unic_emoji_char as emoji;
 
 pub struct Colon3;
 
@@ -10,6 +9,7 @@ fn parse_num(text: &str) -> Result<u8, Error> {
         .map_err(|_| UserError(format_err!("Invalid pyramid size")).into())
 }
 
+#[async_trait]
 impl Processor for Colon3 {
     fn format(&self) -> &'static Regex {
         lazy_static! {
@@ -20,7 +20,7 @@ impl Processor for Colon3 {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, cap: Captures) -> Result<(), Error> {
+    async fn process(&self, ctx: ProcessorContext<'_>, cap: Captures<'_>) -> Result<(), Error> {
         //TODO: error reporting
         let num = if let Some(cap) = cap.name("height") {
             parse_num(cap.as_str())?
@@ -62,7 +62,7 @@ impl Processor for Colon3 {
             return Err(UserError(format_err!("Maximum number of emojis exceeded (198)")).into());
         }
 
-        ctx.reply(&response)?;
+        ctx.reply(&response).await?;
 
         Ok(())
     }

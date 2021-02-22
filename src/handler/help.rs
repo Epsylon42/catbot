@@ -1,9 +1,8 @@
-use super::*;
-use failure::Error;
-use regex::{Captures, Regex};
+use super::prelude::*;
 
 pub struct Help;
 
+#[async_trait]
 impl Processor for Help {
     fn format(&self) -> &'static Regex {
         lazy_static!{
@@ -13,7 +12,7 @@ impl Processor for Help {
         &*RE
     }
 
-    fn process(&self, ctx: ProcessorContext, _: Captures) -> Result<(), Error> {
+    async fn process(&self, ctx: ProcessorContext<'_>, _: Captures<'_>) -> Result<(), Error> {
         let help = "I can help you
 start each command with `catbot`
 
@@ -27,7 +26,7 @@ Things in triangle brackets are (with some limitations) whatever you want
 `[old |custom <PATTERN> ]pyramid[ <HEIGHT>]`: build a pyramid
 `no`: delete latest message";
 
-        ctx.reply(help)?;
+        ctx.reply(help).await?;
 
         Ok(())
     }
