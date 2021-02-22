@@ -1,7 +1,12 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+
+#[macro_use]
+extern crate rocket;
+
 use serde::Deserialize;
 
 mod handler;
-//mod server;
+mod server;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -9,8 +14,8 @@ pub struct Config {
     pub post: std::collections::HashMap<String, String>,
     #[serde(default)]
     pub token: Option<String>,
-    //#[serde(default)]
-    //pub server: Option<server::Config>,
+    #[serde(default)]
+    pub server: Option<server::Config>,
 }
 
 
@@ -34,9 +39,9 @@ async fn main() {
 
     handler::CatBotHandler::init(&mut client).await;
 
-    //if let Some(conf) = config.server {
-        //std::thread::spawn(move || server::start(conf));
-    //}
+    if let Some(conf) = config.server {
+        tokio::spawn(server::start(conf, client.cache_and_http.http.clone()).launch());
+    }
 
     client.start().await.unwrap();
 }

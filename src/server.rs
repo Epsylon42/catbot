@@ -1,17 +1,34 @@
-use rocket::{get, routes};
-use rocket::request::Form;
-use rocket::response::{content::Html, Redirect};
-use serenity::http::{get_channel, get_channels, get_guilds, GuildPagination};
+use rocket::request::{Form, FromForm};
+use rocket::response::{status, content::Html, Redirect};
+use rocket::http::Status;
+use serenity::http::{Http, GuildPagination};
 use serenity::model::{
     channel::{Channel, ChannelType},
     id::GuildId,
 };
 use serde::Deserialize;
 
+use std::sync::Arc;
+
 #[derive(Deserialize)]
 pub struct Config {
     address: [u8; 4],
     port: u16,
+}
+
+#[derive(Debug)]
+struct ServerError(serenity::Error);
+
+impl<'a> rocket::response::Responder<'a, 'static> for ServerError {
+    fn respond_to(self, request: &'a rocket::request::Request<'_>) -> rocket::response::Result<'static> {
+        status::Custom(Status::InternalServerError, format!("{:?}", self.0)).respond_to(request)
+    }
+}
+
+impl From<serenity::Error> for ServerError {
+    fn from(e: serenity::Error) -> Self {
+        ServerError(e)
+    }
 }
 
 fn template(title: &str, body: &str) -> String {
@@ -36,8 +53,8 @@ fn root() -> Redirect {
 }
 
 #[get("/guilds")]
-fn guilds() -> Result<Html<String>, serenity::Error> {
-    let guilds = get_guilds(&GuildPagination::After(GuildId(0)), 100)?
+async fn guilds(http: rocket::State<'_, Arc<Http>>) -> Result<Html<String>, ServerError> {
+    let guilds = http.get_guilds(&GuildPagination::After(GuildId(0)), 100).await?
         .into_iter()
         .map(|guild| {
             format!(
@@ -54,8 +71,8 @@ fn guilds() -> Result<Html<String>, serenity::Error> {
 }
 
 #[get("/guilds/<id>")]
-fn guild(id: u64) -> Result<Html<String>, serenity::Error> {
-    let channels = get_channels(id)?
+async fn guild(id: u64, http: rocket::State<'_, Arc<Http>>) -> Result<Html<String>, ServerError> {
+    let channels = http.get_channels(id).await?
         .into_iter()
         .filter(|chan| chan.kind == ChannelType::Text)
         .map(|chan| {
@@ -73,9 +90,8 @@ fn guild(id: u64) -> Result<Html<String>, serenity::Error> {
 }
 
 #[get("/channel/<id>")]
-fn channel(id: u64) -> Result<Html<String>, serenity::Error> {
-    if let Channel::Guild(chan) = get_channel(id)? {
-        let chan = chan.read();
+async fn channel(id: u64, http: rocket::State<'_, Arc<Http>>) -> Result<Html<String>, ServerError> {
+    if let Channel::Guild(chan) = http.get_channel(id).await? {
         Ok(Html(template(
             &chan.name,
             &format!(
@@ -90,7 +106,7 @@ fn channel(id: u64) -> Result<Html<String>, serenity::Error> {
             ),
         )))
     } else {
-        Err(serenity::Error::Other("Invalid channel type"))
+        Err(ServerError(serenity::Error::Other("Invalid channel type")))
     }
 }
 
@@ -100,30 +116,27 @@ struct MsgForm {
 }
 
 #[post("/channel/<id>", data = "<data>")]
-fn channel_post(
+async fn channel_post(
     id: u64,
     data: Form<MsgForm>,
-) -> Result<Redirect, serenity::Error> {
-    if let Channel::Guild(chan) = get_channel(id)? {
-        let chan = chan.read();
-        chan.say(&data.message)?;
+    http: rocket::State<'_, Arc<Http>>
+) -> Result<Redirect, ServerError> {
+    if let Channel::Guild(chan) = http.get_channel(id).await? {
+        chan.say(&*http, &data.message).await?;
 
         Ok(Redirect::to(format!("/channel/{}", id)))
     } else {
-        Err(serenity::Error::Other("Invalid channel type"))
+        Err(ServerError(serenity::Error::Other("Invalid channel type")))
     }
 }
 
-pub fn start(conf: Config) {
-    let mut server_conf = rocket::Config::active().unwrap();
-    server_conf.address = format!(
-        "{}.{}.{}.{}",
-        conf.address[0], conf.address[1], conf.address[2], conf.address[3]
-    );
+pub fn start(conf: Config, http: Arc<Http>) -> rocket::Rocket {
+    let mut server_conf = rocket::Config::release_default();
+    server_conf.address = conf.address.into();
     server_conf.port = conf.port;
 
     println!("Starting server");
     rocket::Rocket::custom(server_conf)
+        .manage(http)
         .mount("/", routes![root, guilds, guild, channel, channel_post])
-        .launch();
 }
