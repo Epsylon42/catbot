@@ -28,6 +28,7 @@ mod help;
 mod love;
 mod no;
 mod post;
+mod owo;
 
 #[derive(Debug, Fail)]
 #[fail(display = "{}", _0)]
@@ -100,6 +101,7 @@ impl CatBotHandler {
                 .map(|(k, v)| (k.to_lowercase(), v.clone()))
                 .collect(),
         }))
+        .with_processor(Box::new(owo::OwO))
     }
 
     pub async fn init(client: &mut Client) {
